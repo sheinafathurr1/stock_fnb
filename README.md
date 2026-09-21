@@ -148,7 +148,31 @@ php artisan db:seed --class=ItemOutletOwnershipSeeder
 php artisan tinker --execute="App\Models\User::where('username','yourname')->update(['role'=>'manager']);"
 ```
 
-If sign-in still fails, ask the app why:
+Before doing anything by hand, see what the existing accounts already give
+you:
+
+```bash
+php artisan users:audit
+```
+
+It lists the roles present with their counts and says which can sign in.
+**The role check is case-insensitive**, so accounts the shift app already
+stores as `Manager` or `MANAGER` can sign in with no change at all. The audit
+also flags the three things that silently block a sign-in: a blank username,
+a username shared by two accounts, and a password hash this app cannot verify.
+
+If nobody holds the manager role, promote accounts in bulk rather than one at
+a time:
+
+```bash
+php artisan users:grant-manager budi sari agus   # by username
+php artisan users:grant-manager --from-role=Supervisor   # everyone in a role
+php artisan users:grant-manager budi --revoke    # and back again
+```
+
+Both commands show what they will change and ask before writing.
+
+If sign-in still fails for a particular account, ask the app why:
 
 ```bash
 php artisan login:diagnose yourname --password=whatever-you-are-typing
