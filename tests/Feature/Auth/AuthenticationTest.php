@@ -10,11 +10,13 @@ class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_screen_can_be_rendered(): void
+    public function test_login_screen_redirects_to_the_landing_page(): void
     {
+        // Login lives on the landing page (LoginPane), so /login is only a
+        // redirect kept for the named route and any bookmarked links.
         $response = $this->get('/login');
 
-        $response->assertStatus(200);
+        $response->assertRedirect('/');
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void

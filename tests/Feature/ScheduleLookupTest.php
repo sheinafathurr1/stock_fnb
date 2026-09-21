@@ -37,7 +37,7 @@ class ScheduleLookupTest extends TestCase
                 'staff' => [
                     ['id' => $barista->id, 'name' => 'John Doe'],
                 ],
-                'message' => 'Barista pada shift hari ini dipilih otomatis.',
+                'message' => 'The baristas on today’s shift are selected automatically.',
             ]);
     }
 
@@ -70,7 +70,7 @@ class ScheduleLookupTest extends TestCase
             ->assertJson([
                 'status' => 'ok',
                 'date' => $today,
-                'message' => 'Several baristas are on duty today. Select who will submit the report.',
+                'message' => 'Several baristas are on duty today. Please select who will report.',
             ])
             ->assertJsonCount(2, 'staff');
     }

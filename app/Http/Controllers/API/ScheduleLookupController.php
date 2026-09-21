@@ -20,10 +20,7 @@ class ScheduleLookupController extends Controller
             $today = now('Asia/Jakarta')->toDateString();
 
             // Query jadwal_shift table using outlet code (kode_outlet)
-            $schedules = JadwalShift::where('id_outlet', $outlet->kode_outlet)
-                ->whereDate('tanggal', $today)
-                ->where('status', 'Approve')
-                ->get();
+            $schedules = JadwalShift::approvedOn($today, $outlet->kode_outlet)->get();
 
             // Get unique user IDs
             $userIds = $schedules->pluck('id_user')->unique()->filter();

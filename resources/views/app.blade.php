@@ -12,9 +12,21 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
+        @php
+            // Pages resolve from resources/js/Pages *or* resources/js/Features
+            // (see the resolver in app.jsx). Preload whichever one holds this
+            // component; hardcoding Pages/ made every Features/ page fail with
+            // "Unable to locate file in Vite manifest" once assets were built.
+            $pageEntrypoints = collect(['Pages', 'Features'])
+                ->map(fn ($directory) => "resources/js/{$directory}/{$page['component']}.jsx")
+                ->filter(fn ($path) => file_exists(base_path($path)))
+                ->values()
+                ->all();
+        @endphp
+
         @routes
         @viteReactRefresh
-        @vite(['resources/js/app.jsx', "resources/js/Pages/{$page['component']}.jsx"])
+        @vite(array_merge(['resources/js/app.jsx'], $pageEntrypoints))
         @inertiaHead
     </head>
     <body class="font-sans antialiased">

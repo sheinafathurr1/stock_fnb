@@ -18,8 +18,9 @@ class StockReportController extends Controller
     {
         $requestedOutlet = $request->query('outlet');
 
-        // If no outlet parameter provided or empty string, redirect to home
-        if (empty($requestedOutlet) || trim($requestedOutlet) === '') {
+        // ?outlet[]=x arrives as an array; treat anything that is not a plain
+        // string as "no outlet given" rather than letting it reach trim().
+        if (!is_string($requestedOutlet) || trim($requestedOutlet) === '') {
             return redirect('/')
                 ->with('error', 'Please select an outlet to continue.');
         }

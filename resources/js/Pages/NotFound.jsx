@@ -1,5 +1,5 @@
 import { Head, Link } from "@inertiajs/react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/Components/ui/button";
 import { Home } from "lucide-react";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";

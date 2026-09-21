@@ -2,25 +2,46 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     /**
+     * Indexes to add, keyed by table.
+     *
+     * - item_outlet_ownership.current_status: stock filtering on the dashboard
+     * - item.deleted: active item queries (WHERE deleted = false)
+     * - report(outlet_id, created_at): report filtering by outlet and day
+     */
+    private array $indexes = [
+        'item_outlet_ownership' => ['idx_item_outlet_ownership_current_status' => ['current_status']],
+        'item' => ['idx_item_deleted' => ['deleted']],
+        'report' => ['idx_report_outlet_date' => ['outlet_id', 'created_at']],
+    ];
+
+    /**
      * Run the migrations.
      *
-     * Adds critical indexes to improve query performance:
-     * - item_outlet_ownership.current_status: Speeds up stock filtering queries
-     * - item.deleted: Speeds up active item queries (WHERE deleted = false)
-     * - report(outlet_id, created_at): Speeds up report filtering by outlet and date range
+     * Uses the schema builder rather than raw DDL: "CREATE INDEX IF NOT EXISTS"
+     * is not valid MySQL, which is the documented production database.
      */
     public function up(): void
     {
-        // Use raw SQL to add indexes only if they don't already exist
-        DB::statement('CREATE INDEX IF NOT EXISTS idx_item_outlet_ownership_current_status ON item_outlet_ownership(current_status)');
-        DB::statement('CREATE INDEX IF NOT EXISTS idx_item_deleted ON item(deleted)');
-        DB::statement('CREATE INDEX IF NOT EXISTS idx_report_outlet_date ON report(outlet_id, created_at)');
+        foreach ($this->indexes as $table => $definitions) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+
+            foreach ($definitions as $name => $columns) {
+                if (Schema::hasIndex($table, $name)) {
+                    continue;
+                }
+
+                Schema::table($table, function (Blueprint $blueprint) use ($columns, $name) {
+                    $blueprint->index($columns, $name);
+                });
+            }
+        }
     }
 
     /**
@@ -28,9 +49,20 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Drop indexes if they exist
-        DB::statement('DROP INDEX IF EXISTS idx_item_outlet_ownership_current_status ON item_outlet_ownership');
-        DB::statement('DROP INDEX IF EXISTS idx_item_deleted ON item');
-        DB::statement('DROP INDEX IF EXISTS idx_report_outlet_date ON report');
+        foreach ($this->indexes as $table => $definitions) {
+            if (!Schema::hasTable($table)) {
+                continue;
+            }
+
+            foreach ($definitions as $name => $columns) {
+                if (!Schema::hasIndex($table, $name)) {
+                    continue;
+                }
+
+                Schema::table($table, function (Blueprint $blueprint) use ($name) {
+                    $blueprint->dropIndex($name);
+                });
+            }
+        }
     }
 };

@@ -9,6 +9,7 @@ use App\Models\Outlet;
 use App\Models\ItemOutletOwnership;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\DB;
@@ -102,10 +103,26 @@ class ItemController extends Controller
             ];
         });
 
+        // Count the same stock the table below is showing. Counting every
+        // outlet in the system here made the "Almost Out" and "Out of Stock"
+        // cards contradict the rows underneath them whenever a filter was set.
         $statusBreakdown = ItemOutletOwnership::query()
-            ->whereHas('item', function($query) {
+            ->whereIn('outlet_id', $outletModels->pluck('id'))
+            ->whereHas('item', function ($query) use ($filters) {
                 $query->where('deleted', false);
+
+                if (!empty($filters['search'])) {
+                    $query->where('nama', 'like', "%{$filters['search']}%");
+                }
+
+                if (!empty($filters['category'])) {
+                    $query->where('kategori_id', $filters['category']);
+                }
             })
+            ->when(
+                !empty($filters['outlet']),
+                fn ($query) => $query->where('outlet_id', $filters['outlet'])
+            )
             ->select('current_status', DB::raw('COUNT(*) as aggregate'))
             ->groupBy('current_status')
             ->pluck('aggregate', 'current_status');
@@ -165,10 +182,10 @@ class ItemController extends Controller
             'kategori_id' => 'required|exists:kategori,id',
             'deleted' => 'sometimes|boolean',
             'outlet_ids' => 'required|array|min:1',
-            'outlet_ids.*' => 'exists:outlet,id',
+            'outlet_ids.*' => ['integer', Rule::in($this->accessibleOutletIds($request))],
             'ownership_statuses' => 'nullable|array',
             'ownership_statuses.*' => 'in:in_stock,almost_out,out_of_stock',
-        ]);
+        ], [], ['outlet_ids.*' => 'outlet']);
 
         // Create the item
         $item = Item::create([
@@ -232,10 +249,10 @@ class ItemController extends Controller
             'kategori_id' => 'required|exists:kategori,id',
             'deleted' => 'sometimes|boolean',
             'outlet_ids' => 'required|array|min:1',
-            'outlet_ids.*' => 'exists:outlet,id',
+            'outlet_ids.*' => ['integer', Rule::in($this->accessibleOutletIds($request))],
             'ownership_statuses' => 'nullable|array',
             'ownership_statuses.*' => 'in:in_stock,almost_out,out_of_stock',
-        ]);
+        ], [], ['outlet_ids.*' => 'outlet']);
 
         // Update the item
         $attributes = [
@@ -257,7 +274,14 @@ class ItemController extends Controller
 
         $currentOwnerships = $item->ownerships()->get()->keyBy('outlet_id');
 
-        $toDetach = $currentOwnerships->keys()->diff($requestedOutletIds);
+        // Only detach outlets this manager can actually see. The edit form only
+        // offers their own outlets, so without this a scoped manager saving an
+        // item would wipe its ownership at every outlet they cannot see.
+        $accessibleOutletIds = collect($this->accessibleOutletIds($request));
+
+        $toDetach = $currentOwnerships->keys()
+            ->intersect($accessibleOutletIds)
+            ->diff($requestedOutletIds);
 
         if ($toDetach->isNotEmpty()) {
             ItemOutletOwnership::where('item_id', $item->id)
@@ -297,6 +321,17 @@ class ItemController extends Controller
         $item->update(['deleted' => true]);
 
         return redirect()->route('dashboard')->with('success', 'Item deleted successfully!');
+    }
+
+    /**
+     * Outlet IDs this user is allowed to attach items to.
+     *
+     * Without this, a manager scoped to one outlet could write stock into
+     * any other outlet simply by posting its ID.
+     */
+    private function accessibleOutletIds(Request $request): array
+    {
+        return $request->user()->getAccessibleOutlets()->pluck('id')->all();
     }
 
     /**

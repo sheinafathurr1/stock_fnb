@@ -107,7 +107,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Check if user is scheduled at a specific outlet today.
+     * Check if user has an approved shift at a specific outlet today.
+     *
+     * Mirrors the query behind the public schedule lookup endpoint, so the
+     * baristas offered in the reporting dropdown are exactly the ones allowed
+     * to submit a report.
      *
      * @param int $outletId - The outlet ID (not kode_outlet)
      * @return bool
@@ -123,6 +127,7 @@ class User extends Authenticatable
         return $this->schedules()
             ->where('id_outlet', $outlet->kode_outlet)
             ->whereDate('tanggal', now('Asia/Jakarta')->toDateString())
+            ->where('status', JadwalShift::STATUS_APPROVED)
             ->exists();
     }
 

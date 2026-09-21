@@ -1,12 +1,20 @@
 import { Head, Link } from "@inertiajs/react";
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { AlertTriangle, Ban, Clock3, Loader2, Check, Home } from "lucide-react";
+import {
+    AlertTriangle,
+    Ban,
+    Check,
+    Clock3,
+    Home,
+    Loader2,
+    PackageCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import { gsap } from "gsap";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/Components/ui/badge";
+import { Button } from "@/Components/ui/button";
 import {
     Card,
     CardContent,
@@ -14,8 +22,8 @@ import {
     CardFooter,
     CardHeader,
     CardTitle,
-} from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+} from "@/Components/ui/card";
+import { Label } from "@/Components/ui/label";
 import {
     Table,
     TableBody,
@@ -24,7 +32,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "@/components/ui/table";
+} from "@/Components/ui/table";
 import { cn } from "@/lib/utils";
 
 const STATUS_META = {
@@ -42,22 +50,37 @@ const STATUS_META = {
     },
 };
 
-const ACTION_META = {
-    "Almost Out": {
+const INACTIVE_ACTION_CLASS =
+    "border-input bg-background text-foreground hover:bg-accent";
+
+// Each action is only offered where it would actually change something, so a
+// barista is never asked to re-report a status the item already has.
+const ACTIONS = [
+    {
+        label: "Almost Out",
+        status: "ALMOST_OUT",
         icon: AlertTriangle,
-        inactiveClass:
-            "border-input bg-background text-foreground hover:bg-accent",
         activeClass:
             "border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100",
+        appliesTo: ["in_stock"],
     },
-    "Out of Stock": {
+    {
+        label: "Out of Stock",
+        status: "OUT",
         icon: Ban,
-        inactiveClass:
-            "border-input bg-background text-foreground hover:bg-accent",
         activeClass:
             "border-rose-500 bg-rose-50 text-rose-700 hover:bg-rose-100",
+        appliesTo: ["in_stock", "almost_out"],
     },
-};
+    {
+        label: "Back in Stock",
+        status: "READY",
+        icon: PackageCheck,
+        activeClass:
+            "border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+        appliesTo: ["almost_out", "out_of_stock"],
+    },
+];
 
 const normalizeStatus = (status) => {
     if (typeof status !== "string") {
@@ -81,10 +104,8 @@ const normalizeStatus = (status) => {
     return value;
 };
 
-const ACTION_STATUS_MAP = {
-    "almost out": "ALMOST_OUT",
-    "out of stock": "OUT",
-};
+const actionsFor = (status) =>
+    ACTIONS.filter((action) => action.appliesTo.includes(normalizeStatus(status)));
 
 const getStatusMeta = (status) => {
     const key = normalizeStatus(status);
@@ -130,7 +151,7 @@ export default function StockReport({
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
     const [scheduleStatus, setScheduleStatus] = useState("idle");
     const [scheduleMessage, setScheduleMessage] = useState(
-        "Pilih outlet untuk memuat jadwal shift hari ini.",
+        "Select an outlet to load today's shift schedule.",
     );
 
     // Table loading state
@@ -377,52 +398,30 @@ export default function StockReport({
             return;
         }
 
-        // Include items that are currently problematic or flagged through actions
+        // Report exactly what the barista marked. Items were previously
+        // re-sent on every submission just for already being low, which filled
+        // the manager's queue with rows nobody had touched.
         const itemsToReport = stockItems
             .map((item) => {
-                const actionKey =
-                    typeof item.action === "string"
-                        ? item.action.toLowerCase()
-                        : null;
+                const action = ACTIONS.find(
+                    (candidate) => candidate.label === item.action,
+                );
 
-                const actionDerivedStatus =
-                    actionKey && ACTION_STATUS_MAP[actionKey]
-                        ? ACTION_STATUS_MAP[actionKey]
-                        : null;
-
-                if (actionDerivedStatus) {
-                    return {
-                        item_id: item.id,
-                        status: actionDerivedStatus,
-                        action: item.action,
-                    };
+                if (!action) {
+                    return null;
                 }
 
-                const normalizedStatus = normalizeStatus(item.status);
-
-                if (normalizedStatus === "almost_out") {
-                    return {
-                        item_id: item.id,
-                        status: "ALMOST_OUT",
-                        action: item.action || null,
-                    };
-                }
-
-                if (normalizedStatus === "out_of_stock") {
-                    return {
-                        item_id: item.id,
-                        status: "OUT",
-                        action: item.action || null,
-                    };
-                }
-
-                return null;
+                return {
+                    item_id: item.id,
+                    status: action.status,
+                    action: action.label,
+                };
             })
             .filter(Boolean);
 
         // Check if there are any items to report
         if (itemsToReport.length === 0) {
-            toast.error("No items marked as Almost Out or Out of Stock.");
+            toast.error("Mark at least one item before submitting.");
             return;
         }
 
@@ -481,8 +480,16 @@ export default function StockReport({
                     });
                 }
                 
+                const created = response.data.data?.total_items ?? 0;
                 toast.success(
-                    `${response.data.message} (${response.data.data.total_items} items reported)`,
+                    created > 0
+                        ? `${response.data.message} (${created} item${created === 1 ? "" : "s"} reported)`
+                        : response.data.message,
+                );
+
+                // Clear the marks so the next round starts from a clean slate.
+                setStockItems((items) =>
+                    items.map((item) => ({ ...item, action: null })),
                 );
                 
                 // Reset button state after delay
@@ -665,7 +672,7 @@ export default function StockReport({
                                         </Badge>
                                     </CardTitle>
                                     <CardDescription className="mt-1.5">
-                                        Click "Almost Out" or "Out of Stock" for items that need attention
+                                        Mark items that ran low, ran out, or have just been restocked
                                     </CardDescription>
                                 </div>
                             </div>
@@ -674,7 +681,7 @@ export default function StockReport({
                             <div className="px-6 pt-4 pb-2">
                                 <div className="rounded-lg border bg-blue-50/50 border-blue-200 px-4 py-3">
                                     <p className="text-sm text-blue-900">
-                                        <strong>How to submit:</strong> Mark items that are running low or out of stock, select the reporting barista below, then click Submit Report.
+                                        <strong>How to submit:</strong> Mark every item whose status changed — running low, out of stock, or back in stock after a restock — then pick the reporting barista below and click Submit Report.
                                     </p>
                                 </div>
                             </div>
@@ -722,13 +729,8 @@ export default function StockReport({
                                             stockItems.map((item) => {
                                                 const statusMeta =
                                                     getStatusMeta(item.status);
-                                                const normalizedStatus =
-                                                    normalizeStatus(
-                                                        item.status,
-                                                    );
-                                                const isOutOfStock =
-                                                    normalizedStatus ===
-                                                    "out_of_stock";
+                                                const availableActions =
+                                                    actionsFor(item.status);
 
                                                 return (
                                                     <TableRow
@@ -750,62 +752,53 @@ export default function StockReport({
                                                             </Badge>
                                                         </TableCell>
                                                         <TableCell className="py-4">
-                                                            {isOutOfStock ? (
-                                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                                    <Ban className="h-4 w-4" aria-hidden="true" />
-                                                                    <span>Unavailable</span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {Object.entries(
-                                                                        ACTION_META,
-                                                                    ).map(
-                                                                        ([
-                                                                            actionName,
-                                                                            meta,
-                                                                        ]) => {
-                                                                            const Icon =
-                                                                                meta.icon;
-                                                                            const isActive =
-                                                                                item.action ===
-                                                                                actionName;
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {availableActions.map(
+                                                                    (action) => {
+                                                                        const Icon =
+                                                                            action.icon;
+                                                                        const isActive =
+                                                                            item.action ===
+                                                                            action.label;
 
-                                                                            return (
-                                                                                <Button
-                                                                                    key={
-                                                                                        actionName
+                                                                        return (
+                                                                            <Button
+                                                                                key={
+                                                                                    action.label
+                                                                                }
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                aria-pressed={
+                                                                                    isActive
+                                                                                }
+                                                                                onClick={() =>
+                                                                                    handleActionClick(
+                                                                                        item.id,
+                                                                                        action.label,
+                                                                                    )
+                                                                                }
+                                                                                className={cn(
+                                                                                    "flex items-center gap-1.5 font-medium transition-all",
+                                                                                    isActive
+                                                                                        ? action.activeClass
+                                                                                        : INACTIVE_ACTION_CLASS,
+                                                                                )}
+                                                                            >
+                                                                                <Icon
+                                                                                    className="h-4 w-4"
+                                                                                    aria-hidden="true"
+                                                                                />
+                                                                                <span className="whitespace-nowrap">
+                                                                                    {
+                                                                                        action.label
                                                                                     }
-                                                                                    type="button"
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    onClick={() =>
-                                                                                        handleActionClick(
-                                                                                            item.id,
-                                                                                            actionName,
-                                                                                        )
-                                                                                    }
-                                                                                    className={cn(
-                                                                                        "flex items-center gap-1.5 font-medium transition-all",
-                                                                                        isActive
-                                                                                            ? meta.activeClass
-                                                                                            : meta.inactiveClass
-                                                                                    )}
-                                                                                >
-                                                                                    <Icon
-                                                                                        className="h-4 w-4"
-                                                                                        aria-hidden="true"
-                                                                                    />
-                                                                                    <span className="whitespace-nowrap">
-                                                                                        {
-                                                                                            actionName
-                                                                                        }
-                                                                                    </span>
-                                                                                </Button>
-                                                                            );
-                                                                        },
-                                                                    )}
-                                                                </div>
-                                                            )}
+                                                                                </span>
+                                                                            </Button>
+                                                                        );
+                                                                    },
+                                                                )}
+                                                            </div>
                                                         </TableCell>
                                                     </TableRow>
                                                 );

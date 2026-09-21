@@ -7,8 +7,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class JadwalShift extends Model
 {
+    /**
+     * Status a shift must carry before it counts as a real, working shift.
+     */
+    public const STATUS_APPROVED = 'Approve';
+
     protected $table = 'jadwal_shift';
-    
+
     protected $fillable = [
         'id_jam',
         'id_tipe_pekerjaan',
@@ -27,6 +32,16 @@ class JadwalShift extends Model
         'check_in_time' => 'datetime',
         'check_out_time' => 'datetime',
     ];
+
+    /**
+     * Limit the query to approved shifts on the given date.
+     */
+    public function scopeApprovedOn($query, string $date, string $outletCode)
+    {
+        return $query->where('id_outlet', $outletCode)
+            ->whereDate('tanggal', $date)
+            ->where('status', self::STATUS_APPROVED);
+    }
 
     /**
      * Get the user assigned to this shift.

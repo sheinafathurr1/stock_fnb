@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class Report extends Model
 {
@@ -27,6 +29,22 @@ class Report extends Model
         'accepted' => 'boolean',
         'accepted_at' => 'datetime',
     ];
+
+    /**
+     * Always persist the reporting day as a bare date.
+     *
+     * The date cast alone lets Eloquent write "2026-09-21 00:00:00", which a
+     * plain equality filter on "2026-09-21" never matches on drivers that
+     * store what they are given (SQLite). Normalising on write keeps the
+     * column comparable without falling back to whereDate(), which would give
+     * up the (reported_for_date, outlet_id) index on MySQL.
+     */
+    protected function reportedForDate(): Attribute
+    {
+        return Attribute::make(
+            set: fn ($value) => $value === null ? null : Carbon::parse($value)->toDateString(),
+        );
+    }
 
     /**
      * Get the outlet that owns the report.

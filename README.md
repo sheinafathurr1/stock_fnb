@@ -5,22 +5,25 @@ A modern web application built with Laravel and React for managing coffee shop/b
 ## 🚀 Features
 
 ### Core Features
-- **Stock Reporting System** - Baristas can report inventory status for various items
-- **Multi-Outlet Support** - Manage multiple locations (Warehouse, Outlet A, Outlet B)
-- **Role-Based Access Control** - Different permissions for Manager and Staff roles
-- **Real-time Clock Display** - Live timestamp for accurate reporting
-- **Interactive Dashboard** - Manager overview and staff management
-- **Shift Scheduling** - Built-in shift management system
+- **Stock Reporting System** - Baristas report stock changes without logging in
+- **Multi-Outlet Support** - Each outlet carries its own items and statuses
+- **Roster-Based Access Control** - Who may report, and which outlets a manager
+  sees, both follow the shift roster
+- **Manager Review Queue** - Reports are accepted before they change stock
+- **Interactive Dashboard** - Stock overview with search, category and outlet filters
+- **Shift Scheduling** - Weekly roster view per outlet
 
 ### Stock Management
-- **Inventory Tracking** - Monitor stock levels for coffee shop essentials
-- **Status Reporting** - Mark items as "Ready" or "Habis" (Out of Stock)
-- **Action Alerts** - Flag items as "Hampir Habis" (Almost Out)
-- **Report Generation** - Generate detailed stock reports with timestamps
+- **Inventory Tracking** - Per-outlet status for every item
+- **Three Reportable States** - Almost Out, Out of Stock, and Back in Stock
+  (so an item that ran out can be put back on the shelf)
+- **Duplicate Suppression** - An identical report still awaiting review is not
+  filed twice
+- **Report History** - Filter by outlet and date, with auto-refresh
 
 ### User Management
-- **Authentication** - Secure login system with Laravel Sanctum
-- **User Roles** - Manager and Staff role differentiation
+- **Authentication** - Session-based login for managers
+- **User Roles** - `manager` and `barista`
 - **Profile Management** - User profile editing capabilities
 
 ## 🛠 Technology Stack
@@ -29,7 +32,7 @@ A modern web application built with Laravel and React for managing coffee shop/b
 - **Laravel 12** - PHP web framework
 - **Inertia.js** - Modern monolithic SPA approach
 - **Laravel Sanctum** - API authentication
-- **MySQL** - Database management
+- **MySQL or SQLite** - MySQL in production; `.env.example` defaults to SQLite
 
 ### Frontend
 - **React 18** - User interface library
@@ -53,15 +56,15 @@ Before running this application, make sure you have the following installed:
 - **PHP 8.2 or higher**
 - **Composer** - PHP dependency manager
 - **Node.js 18+** and **npm** or **pnpm**
-- **MySQL** - Database server
+- **MySQL** - Only if you are not using the default SQLite database
 - **Git** - Version control system
 
 ## 🚀 Installation
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/aiyafi/stock-report
-cd stock-report
+git clone https://github.com/sheinafathurr/stock_fnb
+cd stock_fnb
 ```
 
 ### 2. Install PHP Dependencies
@@ -81,7 +84,12 @@ pnpm install
 cp .env.example .env
 ```
 
-Update your `.env` file with the appropriate database credentials:
+`.env.example` uses SQLite, which needs no setup beyond creating the file:
+```bash
+touch database/database.sqlite
+```
+
+To use MySQL instead, update your `.env` with the appropriate credentials:
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -101,9 +109,19 @@ php artisan key:generate
 # Run migrations
 php artisan migrate
 
-# Seed the database (optional)
+# Seed the database (categories, outlets, items, and demo accounts)
 php artisan db:seed
 ```
+
+Seeding creates the accounts you need to sign in:
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Manager | `manager@example.com` | `password` |
+| Barista | `barista1@example.com` … | `password` |
+
+Each seeded barista is rostered at one outlet for the current day, which is
+what makes them selectable on the reporting page.
 
 ### 7. Import Existing Database (if available)
 If you have an existing SQL file with your data:
@@ -152,12 +170,17 @@ php artisan pail
 ## 📊 Database Schema
 
 ### Main Tables
-- **users** - User accounts with roles (Manager/Staff)
-- **jadwal_shift** - Shift scheduling data
-- **jam_shift** - Shift time configurations
-- **kesediaan** - Staff availability data
-- **periode_gaji** - Payroll period management
-- **tipe_pekerjaan** - Job type classifications
+- **users** - User accounts with roles (`manager` / `barista`)
+- **outlet** - Locations, keyed by `kode_outlet`
+- **kategori** - Item categories
+- **item** - Stock items (`deleted` acts as a soft-delete flag)
+- **item_outlet_ownership** - Which items an outlet carries, and each one's
+  `current_status` (`in_stock` / `almost_out` / `out_of_stock`)
+- **report** - One row per reported item, with `report_status`
+  (`READY` / `ALMOST_OUT` / `OUT`), `reported_for_date` and the acceptance
+  fields (`accepted`, `accepted_by`, `accepted_at`)
+- **jadwal_shift** - Shift roster; drives both who may report and which
+  outlets a user can see
 
 ### Laravel System Tables
 - **sessions** - User session management
@@ -167,17 +190,30 @@ php artisan pail
 
 ## 👥 User Roles & Permissions
 
-### Manager Role
-- Access to dashboard
-- View all reports
-- Manage staff schedules
-- Generate comprehensive reports
+Outlet access is derived from the shift roster (`jadwal_shift`), not from a
+separate assignment table: a user sees the outlets they have been scheduled
+at, and a user with no roster history sees all of them.
 
-### Staff Role
-- Create stock reports
-- Update inventory status
-- View personal reports
-- Limited to assigned outlet
+### Manager Role
+- Access to the dashboard, reports and schedule pages
+- Create, edit and remove items at the outlets they cover
+- Accept reports, which applies the reported status to the item
+- Delete the reports currently in view (scoped to the outlet/date filters)
+
+### Barista Role
+- Submit stock reports from the public `/stock-report` page, without logging in
+- Only while rostered at that outlet today with an approved shift
+
+## 🔄 Reporting Flow
+
+1. A barista opens `/stock-report?outlet=<kode_outlet>` and marks each item
+   whose status changed — **Almost Out**, **Out of Stock**, or **Back in
+   Stock** once it has been restocked.
+2. They pick their name from today's approved roster and submit. Submissions
+   are rejected unless that barista is actually rostered at that outlet today,
+   and an identical report that no manager has acted on yet is not duplicated.
+3. A manager reviews the queue on `/reports` and accepts each row, which
+   writes the reported status onto the item for that outlet.
 
 ## 🔧 Configuration
 
@@ -224,9 +260,8 @@ The application uses Tailwind CSS. Customize styles in:
 - `tailwind.config.js` - Tailwind configuration
 
 ### Adding New Outlets
-Update the outlet options in:
-- `resources/js/Pages/Welcome.jsx` (outlets array)
-- `resources/js/Pages/StockReport.jsx` (outlet select options)
+Outlets are read from the `outlet` table, so add a row there (or extend
+`database/seeders/OutletSeeder.php`). No frontend change is needed.
 
 ## 🔒 Security Features
 

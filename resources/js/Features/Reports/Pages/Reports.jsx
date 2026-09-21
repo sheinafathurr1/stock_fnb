@@ -20,7 +20,7 @@ import {
 
 const STATUS_LABELS = {
     READY: {
-        label: 'In Stock',
+        label: 'Restocked',
         tone: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
     ALMOST_OUT: {
@@ -52,11 +52,24 @@ const formatDateTime = (dateString) => {
     }
 };
 
-export default function Reports({ reports = {}, outlets = [], filters = {}, config = {} }) {
+export default function Reports({
+    reports = {},
+    outlets = [],
+    filters = {},
+    config = {},
+    pendingCount: initialPendingCount = 0,
+}) {
     const initialReportsData = reports?.data ?? [];
     const paginationLinks = reports?.links ?? [];
-    const reportsMeta = reports?.meta ?? {};
-    const totalReports = reportsMeta.total ?? initialReportsData.length;
+    // Laravel serialises the paginator's counters at the top level; reading
+    // them from a `meta` object that is never sent made every total collapse
+    // to the size of the page on screen.
+    const currentPage = reports?.current_page ?? 1;
+
+    // Polling refreshes these, so they are state rather than derived values.
+    const [totalReports, setTotalReports] = useState(
+        reports?.total ?? initialReportsData.length,
+    );
 
     const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -68,7 +81,7 @@ export default function Reports({ reports = {}, outlets = [], filters = {}, conf
 
     // Periodic AJAX polling state
     const [isPolling, setIsPolling] = useState(false);
-    const [pendingCount, setPendingCount] = useState(0);
+    const [pendingCount, setPendingCount] = useState(initialPendingCount);
     const [lastPolledAt, setLastPolledAt] = useState(null);
     const POLLING_INTERVAL = config.pollingInterval || 30000; // From backend config
 
@@ -88,7 +101,8 @@ export default function Reports({ reports = {}, outlets = [], filters = {}, conf
 
     useEffect(() => {
         setReportsData(initialReportsData);
-    }, [initialReportsData]);
+        setTotalReports(reports?.total ?? initialReportsData.length);
+    }, [initialReportsData, reports?.total]);
 
     const applyFilters = (overrides = {}) => {
         const payload = {};
@@ -174,11 +188,15 @@ export default function Reports({ reports = {}, outlets = [], filters = {}, conf
             const params = new URLSearchParams();
             if (outletFilter) params.append('outlet', outletFilter);
             if (dateFilter) params.append('date', dateFilter);
+            // Without the page, a refresh used to drop the manager back onto
+            // the first page's rows while the pagination still said page N.
+            params.append('page', String(currentPage));
 
             const response = await axios.get(route('reports.poll') + '?' + params.toString());
 
             if (response.data.success) {
                 setReportsData(response.data.data);
+                setTotalReports(response.data.meta.total);
                 setPendingCount(response.data.meta.pending);
                 setLastPolledAt(new Date());
             }
@@ -187,7 +205,7 @@ export default function Reports({ reports = {}, outlets = [], filters = {}, conf
         } finally {
             setIsPolling(false);
         }
-    }, [outletFilter, dateFilter]);
+    }, [outletFilter, dateFilter, currentPage]);
 
     // Set up periodic polling
     useEffect(() => {
@@ -201,11 +219,11 @@ export default function Reports({ reports = {}, outlets = [], filters = {}, conf
         return () => clearInterval(intervalId);
     }, [pollReports, POLLING_INTERVAL]);
 
-    // Calculate initial pending count from data
+    // The server counts pending reports across the whole filtered day; the
+    // visible page is only a slice of it, so never recount from the rows.
     useEffect(() => {
-        const pending = reportsData.filter((r) => !r.accepted).length;
-        setPendingCount(pending);
-    }, [initialReportsData]);
+        setPendingCount(initialPendingCount);
+    }, [initialPendingCount]);
 
     const LaravelPagination = ({ links = [] }) => {
         if (!links.length) return null;
@@ -435,7 +453,7 @@ export default function Reports({ reports = {}, outlets = [], filters = {}, conf
                                     <div className="flex flex-col lg:flex-row gap-4 border-t border-gray-200 pt-4 lg:items-center lg:justify-between">
                                         {/* Left: Showing text */}
                                         <p className="text-sm text-gray-600 whitespace-nowrap">
-                                            Showing <span className="font-semibold text-gray-900">{reportsData.length}</span> of <span className="font-semibold text-gray-900">{reportsMeta.total ?? reportsData.length}</span> reports
+                                            Showing <span className="font-semibold text-gray-900">{reportsData.length}</span> of <span className="font-semibold text-gray-900">{totalReports}</span> reports
                                         </p>
 
                                         {/* Center: Pagination */}
@@ -486,6 +504,12 @@ export default function Reports({ reports = {}, outlets = [], filters = {}, conf
                 open={resetDialogOpen}
                 onOpenChange={setResetDialogOpen}
                 reportCount={totalReports}
+                outletId={outletFilter}
+                outletName={
+                    outletOptions.find((outlet) => outlet.id === outletFilter)
+                        ?.name ?? ''
+                }
+                date={dateFilter}
             />
         </AuthenticatedLayout>
     );

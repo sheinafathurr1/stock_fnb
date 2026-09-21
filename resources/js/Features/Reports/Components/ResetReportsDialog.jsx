@@ -12,17 +12,26 @@ import { Button } from '@/Components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function ResetReportsDialog({ open, onOpenChange, reportCount }) {
+export default function ResetReportsDialog({
+    open,
+    onOpenChange,
+    reportCount,
+    outletId = '',
+    outletName = '',
+    date = '',
+}) {
     const [deleting, setDeleting] = useState(false);
 
     const handleReset = () => {
         setDeleting(true);
-        router.delete('/reports/reset', {
+        // Send the filters currently on screen: the server deletes exactly the
+        // reports this dialog is describing, not every report ever submitted.
+        router.delete(route('reports.reset', { date, outlet: outletId || undefined }), {
             preserveScroll: true,
             onSuccess: () => {
                 onOpenChange(false);
                 setDeleting(false);
-                toast.success('All reports have been deleted successfully!');
+                toast.success('Reports deleted successfully!');
             },
             onError: () => {
                 setDeleting(false);
@@ -30,6 +39,8 @@ export default function ResetReportsDialog({ open, onOpenChange, reportCount }) 
             },
         });
     };
+
+    const scope = outletName ? `${outletName} on ${date}` : `all outlets on ${date}`;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -39,12 +50,12 @@ export default function ResetReportsDialog({ open, onOpenChange, reportCount }) 
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100">
                             <AlertTriangle className="h-4 w-4 text-red-600" />
                         </div>
-                        Reset All Reports?
+                        Delete these reports?
                     </DialogTitle>
                     <DialogDescription className="text-left pt-2">
-                        Are you sure you want to delete <span className="font-semibold text-gray-900">all {reportCount} report{reportCount !== 1 ? 's' : ''}</span>?
+                        This deletes the <span className="font-semibold text-gray-900">{reportCount} report{reportCount !== 1 ? 's' : ''}</span> currently shown for <span className="font-semibold text-gray-900">{scope}</span>. Reports for other days and outlets are left alone.
                         <br />
-                        <span className="text-red-600 font-medium">This action cannot be undone. All report history will be permanently removed.</span>
+                        <span className="text-red-600 font-medium">This action cannot be undone.</span>
                     </DialogDescription>
                 </DialogHeader>
 
@@ -73,7 +84,7 @@ export default function ResetReportsDialog({ open, onOpenChange, reportCount }) 
                                 Deleting...
                             </>
                         ) : (
-                            'Delete All Reports'
+                            'Delete These Reports'
                         )}
                     </Button>
                 </DialogFooter>
