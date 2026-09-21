@@ -115,10 +115,13 @@ php artisan db:seed
 
 Seeding creates the accounts you need to sign in:
 
-| Role | Email | Password |
+| Role | Username | Password |
 | --- | --- | --- |
-| Manager | `manager@example.com` | `password` |
-| Barista | `barista1@example.com` … | `password` |
+| Manager | `manager` | `password` |
+| Barista | `barista1` … | `password` |
+
+Sign-in uses the **username**, not the email address. Only managers sign in;
+baristas report from the public page.
 
 Each seeded barista is rostered at one outlet for the current day, which is
 what makes them selectable on the reporting page.
@@ -142,7 +145,22 @@ php artisan db:seed --class=ItemSeeder
 php artisan db:seed --class=ItemOutletOwnershipSeeder
 
 # 2. Give an existing user the manager role, since roles start out null.
-php artisan tinker --execute="App\Models\User::where('email','you@example.com')->update(['role'=>'manager']);"
+php artisan tinker --execute="App\Models\User::where('username','yourname')->update(['role'=>'manager']);"
+```
+
+If sign-in still fails, ask the app why:
+
+```bash
+php artisan login:diagnose yourname --password=whatever-you-are-typing
+```
+
+It reports whether the username exists, whether the role permits signing in,
+and whether the stored password is in a format Laravel can verify. Accounts
+carried over from another application often hold MD5 or SHA1 hashes, which
+this app cannot check; rehash one with:
+
+```bash
+php artisan login:reset-password yourname
 ```
 
 `outlet.kode_outlet` must match the `jadwal_shift.id_outlet` values your shift
@@ -220,6 +238,7 @@ separate assignment table: a user sees the outlets they have been scheduled
 at, and a user with no roster history sees all of them.
 
 ### Manager Role
+- Signs in with their **username** and password
 - Access to the dashboard, reports and schedule pages
 - Create, edit and remove items at the outlets they cover
 - Accept reports, which applies the reported status to the item

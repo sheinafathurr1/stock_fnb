@@ -33,21 +33,32 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Check user role after authentication
+        // Check user role after authentication. Baristas report from the
+        // public page and never sign in, so only managers get a session.
         $user = Auth::user();
-        
-        // Only allow Manager role to proceed
-        if ($user && strtolower($user->role) === 'manager') {
+
+        if ($user && strtolower((string) $user->role) === 'manager') {
             return redirect()->intended(route('dashboard', absolute: false));
         }
-        
-        // For staff or other roles, logout and redirect back to login with error
+
+        // Credentials were right but the role is not manager, so drop the
+        // session again. Say which it is: a blank role on an account carried
+        // over from another app reads exactly like a wrong password
+        // otherwise.
+        $role = trim((string) $user?->role);
+
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        
-        return redirect()->route('login')->withErrors([
-            'email' => 'Access denied. Only Managers can access the system.',
+
+        // Redirect to '/' rather than route('login'): that route is itself a
+        // redirect to '/', and the extra hop consumes the flashed errors, so
+        // the message below never reached the page and the rejection looked
+        // like a silent failure.
+        return redirect('/')->withErrors([
+            'username' => $role === ''
+                ? 'This account has no role set, so it cannot sign in. A manager role is required.'
+                : "Access denied. This account's role is \"{$role}\"; only managers can sign in.",
         ]);
     }
 

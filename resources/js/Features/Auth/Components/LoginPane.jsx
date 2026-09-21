@@ -17,7 +17,7 @@ const LoginPage = ({ auth, position = "bottom", useStaticPosition = false }) => 
         theme: "system",
     });
     const [formData, setFormData] = useState({
-        email: "",
+        username: "",
         password: "",
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -180,12 +180,12 @@ const LoginPage = ({ auth, position = "bottom", useStaticPosition = false }) => 
                 setIsSubmitting(false);
 
                 // Set error message based on the error type
-                if (errors.email) {
-                    setErrorMessage(errors.email);
+                if (errors.username) {
+                    setErrorMessage(errors.username);
                 } else if (errors.password) {
                     setErrorMessage(errors.password);
                 } else {
-                    setErrorMessage("Invalid email or password. Please try again.");
+                    setErrorMessage("Invalid username or password. Please try again.");
                 }
             }
         });
@@ -266,23 +266,27 @@ const LoginPage = ({ auth, position = "bottom", useStaticPosition = false }) => 
                         ref={innerContentRef}
                         className="absolute top-[72px] left-0 right-0 px-6 flex flex-col gap-4 opacity-0 pointer-events-none"
                     >
-                    {/* Email Form */}
+                    {/* Sign-in form */}
                     <form
                         onSubmit={handleFormSubmit}
                         className="flex flex-col gap-3.5 w-full"
                     >
                         <Input
-                            type="email"
+                            type="text"
                             required
-                            placeholder="Enter your email"
+                            autoComplete="username"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            placeholder="Enter your username"
                             className={`h-11 w-full ${errorMessage ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-                            value={formData.email}
-                            onChange={(e) => handleInputChange('email', e.target.value)}
+                            value={formData.username}
+                            onChange={(e) => handleInputChange('username', e.target.value)}
                             disabled={isSubmitting}
                         />
                         <Input
                             type="password"
                             required
+                            autoComplete="current-password"
                             placeholder="Enter your password"
                             className={`h-11 w-full ${errorMessage ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                             value={formData.password}
