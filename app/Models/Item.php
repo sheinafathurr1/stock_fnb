@@ -49,13 +49,5 @@ class Item extends Model
     {
         return $this->hasMany(ItemOutletOwnership::class);
     }
-
-    /**
-     * Get the report lines for the item.
-     */
-    public function reportLines(): HasMany
-    {
-        return $this->hasMany(ReportLine::class);
-    }
 }
 

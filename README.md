@@ -188,6 +188,11 @@ php artisan pail
 - **jobs** - Background job processing
 - **migrations** - Database version control
 
+> `report_line`, `schedules` and `user_outlet_assignments` were created by
+> earlier migrations but never read or written. They are dropped by
+> `2025_11_22_000001_drop_unused_tables`, which is reversible if you need them
+> back.
+
 ## 👥 User Roles & Permissions
 
 Outlet access is derived from the shift roster (`jadwal_shift`), not from a

@@ -5,7 +5,7 @@
 1. [Project Overview](#project-overview)
 2. [Frontend - Item Inventory Dashboard](#frontend---item-inventory-dashboard)
 3. [Backend - Report API Endpoint](#backend---report-api-endpoint)
-4. [Database - Report and ReportLine Models](#database---report-and-reportline-models)
+4. [Database - Report Model](#database---report-model)
 5. [Auth - User Authentication Flow](#auth---user-authentication-flow)
 6. [Common Issues & Solutions](#common-issues--solutions)
 7. [Best Practices](#best-practices)
@@ -778,7 +778,6 @@ The Report API endpoint handles stock report submissions from baristas. It valid
 **Models:**
 ```
 /app/Models/Report.php
-/app/Models/ReportLine.php  (currently unused but available)
 ```
 
 **Routes:**
@@ -847,12 +846,6 @@ public function item(): BelongsTo        // belongs to Item
     'reported_for_date',   // Date of report (not created_at)
 ]
 ```
-
-#### ReportLine.php Model
-
-**Purpose:** Designed for multi-item reports (currently unused)
-
-**Note:** The current implementation creates one `Report` per item. `ReportLine` was designed for a structure where one report has many line items, but this pattern isn't currently used.
 
 ### 4. Data Flow & How It Works
 
@@ -1409,13 +1402,12 @@ php artisan route:list | grep report
 
 ---
 
-## Database - Report and ReportLine Models
+## Database - Report Model
 
 ### 1. Overview
 
 **What they do:**
 - **Report Model**: Represents individual stock reports submitted by baristas
-- **ReportLine Model**: Designed for multi-item reports (currently unused)
 
 **Why they're important:**
 - Store historical stock report data
@@ -1425,7 +1417,6 @@ php artisan route:list | grep report
 
 **Current Usage:**
 - **Report**: Actively used (one report per item)
-- **ReportLine**: Schema exists but not currently in use
 
 ### 2. Database Schema
 
@@ -1456,32 +1447,22 @@ CREATE TABLE `report` (
 - `outlet_id`: Foreign key to `outlet` table (which outlet)
 - `user_id`: Foreign key to `users` table (which barista submitted)
 - `item_id`: Foreign key to `item` table (which item was reported)
-- `report_status`: Enum-like string (`ALMOST_OUT` or `OUT`)
+- `report_status`: Enum-like string (`READY`, `ALMOST_OUT` or `OUT`)
 - `reported_for_date`: Date the report is for (not when it was created)
 - `created_at`: Timestamp when record was created
 
-#### `report_line` Table Structure (Unused)
+#### Removed Tables
 
-```sql
-CREATE TABLE `report_line` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `report_id` bigint unsigned NOT NULL,
-  `item_id` bigint unsigned NOT NULL,
-  `status` varchar(255) NOT NULL,
-  `action` text,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `report_line_report_id_foreign` (`report_id`),
-  KEY `report_line_item_id_foreign` (`item_id`),
-  CONSTRAINT `report_line_report_id_foreign` FOREIGN KEY (`report_id`) REFERENCES `report` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `report_line_item_id_foreign` FOREIGN KEY (`item_id`) REFERENCES `item` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
+`report_line`, `schedules` and `user_outlet_assignments` were created but never
+read or written, and were dropped in
+`2025_11_22_000001_drop_unused_tables`:
 
-**Purpose:** Designed for a parent-child relationship where:
-- One `report` has many `report_line` items
-- Currently unused in favor of multiple `report` records
+- `report_line` belonged to a parent/child report design that was abandoned
+  once `report` became one row per item.
+- `schedules` was superseded by `jadwal_shift`, which every access check and
+  the schedule screen actually query.
+- `user_outlet_assignments` never had a reader; outlet access is derived from
+  the shift roster instead.
 
 ### 3. Relationships
 

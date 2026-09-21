@@ -49,14 +49,6 @@ class Outlet extends Model
     }
 
     /**
-     * Get schedules associated with the outlet.
-     */
-    public function schedules(): HasMany
-    {
-        return $this->hasMany(Schedule::class);
-    }
-
-    /**
      * Get shift schedules for the outlet (jadwal_shift table).
      * Note: Uses kode_outlet as the foreign key
      */

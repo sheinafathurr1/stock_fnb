@@ -1,1 +1,0 @@
-Nah selama testing ini, saya tidak menggunakan data aktual shift pegawai yang ada di table `jadwal_shift` karena data saat ini belum tersedia. Nah tapi saya jujur aja gatau kenapa pada field "Barista / Employee" bisa di akses selama testing ini. Nah pertanyaan saya, jika saya di tanyakan oleh dosen saya, bagaimana saya harus menjawabnya?
