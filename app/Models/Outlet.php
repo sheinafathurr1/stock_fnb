@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Outlet extends Model
 {
     use HasFactory;
+
     protected $table = 'outlet';
 
     protected $fillable = [
@@ -55,38 +56,5 @@ class Outlet extends Model
     public function jadwalShift(): HasMany
     {
         return $this->hasMany(JadwalShift::class, 'id_outlet', 'kode_outlet');
-    }
-
-    /**
-     * Get users scheduled at this outlet (based on jadwal_shift).
-     * Note: Returns users who have ever been scheduled here.
-     */
-    public function scheduledUsers()
-    {
-        return User::whereHas('schedules', function ($query) {
-            $query->where('id_outlet', $this->kode_outlet);
-        })->get();
-    }
-
-    /**
-     * Get baristas scheduled at this outlet.
-     */
-    public function scheduledBaristas()
-    {
-        return User::whereRaw('LOWER(role) = ?', ['barista'])
-            ->whereHas('schedules', function ($query) {
-                $query->where('id_outlet', $this->kode_outlet);
-            })->get();
-    }
-
-    /**
-     * Get managers scheduled at this outlet.
-     */
-    public function scheduledManagers()
-    {
-        return User::whereRaw('LOWER(role) = ?', ['manager'])
-            ->whereHas('schedules', function ($query) {
-                $query->where('id_outlet', $this->kode_outlet);
-            })->get();
     }
 }
