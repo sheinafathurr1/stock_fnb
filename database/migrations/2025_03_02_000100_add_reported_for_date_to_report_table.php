@@ -19,7 +19,12 @@ return new class extends Migration
 
         Schema::table('report', function (Blueprint $table) {
             if (!Schema::hasColumn('report', 'reported_for_date')) {
-                $table->date('reported_for_date')->nullable()->after('report_status');
+                // No ->after() here: report_status is only added by
+                // 2025_10_20_124608, which runs later. MySQL rejects a
+                // position clause naming a column that does not exist yet,
+                // while SQLite ignores the clause entirely — which is why
+                // this only ever failed on MySQL.
+                $table->date('reported_for_date')->nullable();
             }
         });
 

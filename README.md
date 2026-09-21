@@ -319,6 +319,18 @@ Outlets are read from the `outlet` table, so add a row there (or extend
    php artisan cache:clear
    ```
 
+### Testing against MySQL
+
+`phpunit.xml` runs the suite on an in-memory SQLite database, which is fast
+but hides driver-specific problems — SQLite silently ignores things MySQL
+rejects, such as a column position clause. Before shipping a migration,
+run it against MySQL too:
+
+```bash
+mysql -u root -p -e "CREATE DATABASE stock_fnb_check"
+php artisan migrate --force   # with .env pointed at stock_fnb_check
+```
+
 ### Code Style
 - Follow PSR-12 PHP coding standards
 - Use Laravel Pint for code formatting: `php artisan pint`
