@@ -55,7 +55,7 @@ Before running this application, make sure you have the following installed:
 
 - **PHP 8.2 or higher**
 - **Composer** - PHP dependency manager
-- **Node.js 18+** and **npm** or **pnpm**
+- **Node.js 20.19+ or 22.12+** and **npm** or **pnpm** (required by Vite 7; Node 18 will not build)
 - **MySQL** - Only if you are not using the default SQLite database
 - **Git** - Version control system
 
