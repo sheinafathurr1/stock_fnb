@@ -20,7 +20,9 @@ class KategoriSeeder extends Seeder
         ];
 
         foreach ($categories as $category) {
-            Kategori::create($category);
+            // Idempotent: this app may be seeded into a database that already
+            // carries reference data from an earlier run.
+            Kategori::firstOrCreate(['nama' => $category['nama']], $category);
         }
     }
 }

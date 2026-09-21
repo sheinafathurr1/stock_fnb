@@ -36,7 +36,7 @@ class OutletSeeder extends Seeder
         ];
 
         foreach ($outlets as $outlet) {
-            Outlet::create($outlet);
+            Outlet::firstOrCreate(['kode_outlet' => $outlet['kode_outlet']], $outlet);
         }
     }
 }

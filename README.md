@@ -123,11 +123,31 @@ Seeding creates the accounts you need to sign in:
 Each seeded barista is rostered at one outlet for the current day, which is
 what makes them selectable on the reporting page.
 
-### 7. Import Existing Database (if available)
-If you have an existing SQL file with your data:
+### 7. Sharing a database with an existing shift application
+
+This app is built to run alongside an existing shift-management app on the
+same database — it reads its roster straight from that app's `jadwal_shift`
+table. Every table it creates is created only if absent, and where `users`
+already exists its missing columns are added rather than the table being
+recreated, so `php artisan migrate` is safe to run against that database.
+
+Two things to do afterwards:
+
 ```bash
-mysql -u your_username -p your_database_name < database/your_sql_file.sql
+# 1. Seed only the reference data; your users already exist, so skip the
+#    demo accounts. These seeders are safe to re-run.
+php artisan db:seed --class=KategoriSeeder
+php artisan db:seed --class=OutletSeeder
+php artisan db:seed --class=ItemSeeder
+php artisan db:seed --class=ItemOutletOwnershipSeeder
+
+# 2. Give an existing user the manager role, since roles start out null.
+php artisan tinker --execute="App\Models\User::where('email','you@example.com')->update(['role'=>'manager']);"
 ```
+
+`outlet.kode_outlet` must match the `jadwal_shift.id_outlet` values your shift
+app uses — that is what links a roster entry to an outlet. Adjust
+`database/seeders/OutletSeeder.php` if your codes differ.
 
 ### 8. Build Assets
 ```bash

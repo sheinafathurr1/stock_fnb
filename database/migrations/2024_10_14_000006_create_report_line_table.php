@@ -11,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // This app may share a database with an existing application.
+        if (Schema::hasTable('report_line')) {
+            return;
+        }
+
         Schema::create('report_line', function (Blueprint $table) {
             $table->id();
             $table->foreignId('report_id')->constrained('report')->onDelete('cascade');

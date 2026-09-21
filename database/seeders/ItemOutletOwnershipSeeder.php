@@ -45,11 +45,10 @@ class ItemOutletOwnershipSeeder extends Seeder
             $item = $items->where('nama', $itemName)->first();
             if ($item) {
                 foreach ($outlets as $outlet) {
-                    ItemOutletOwnership::create([
-                        'item_id' => $item->id,
-                        'outlet_id' => $outlet->id,
-                        'current_status' => 'in_stock',
-                    ]);
+                    ItemOutletOwnership::firstOrCreate(
+                        ['item_id' => $item->id, 'outlet_id' => $outlet->id],
+                        ['current_status' => 'in_stock'],
+                    );
                 }
             }
         }
@@ -62,11 +61,10 @@ class ItemOutletOwnershipSeeder extends Seeder
                 foreach ($baristaOutlets as $outlet) {
                     // Vary the status for realism
                     $status = $this->getRandomStatus();
-                    ItemOutletOwnership::create([
-                        'item_id' => $item->id,
-                        'outlet_id' => $outlet->id,
-                        'current_status' => $status,
-                    ]);
+                    ItemOutletOwnership::firstOrCreate(
+                        ['item_id' => $item->id, 'outlet_id' => $outlet->id],
+                        ['current_status' => $status],
+                    );
                 }
             }
         }
@@ -76,11 +74,10 @@ class ItemOutletOwnershipSeeder extends Seeder
             $item = $items->where('nama', $itemName)->first();
             if ($item) {
                 $status = $this->getRandomStatus();
-                ItemOutletOwnership::create([
-                    'item_id' => $item->id,
-                    'outlet_id' => $juiceBar->id,
-                    'current_status' => $status,
-                ]);
+                ItemOutletOwnership::firstOrCreate(
+                    ['item_id' => $item->id, 'outlet_id' => $juiceBar->id],
+                    ['current_status' => $status],
+                );
             }
         }
     }

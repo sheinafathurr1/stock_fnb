@@ -11,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // This app may share a database with an existing application.
+        if (Schema::hasTable('user_outlet_assignments')) {
+            return;
+        }
+
         Schema::create('user_outlet_assignments', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
