@@ -41,7 +41,21 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('username', 'password'), $this->boolean('remember'))) {
+        // An account whose password was hashed by another application (MD5,
+        // SHA1) or truncated in storage makes the hasher throw rather than
+        // return false. Left alone that surfaces as a 500 on the login form,
+        // so turn it into a message that says what to do about it.
+        try {
+            $attempted = Auth::attempt($this->only('username', 'password'), $this->boolean('remember'));
+        } catch (\RuntimeException $e) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'username' => 'This account\'s password is stored in a format this application cannot read. An administrator needs to reset it.',
+            ]);
+        }
+
+        if (! $attempted) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -113,6 +114,24 @@ class AuthenticationTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('LandingPage/Pages/LandingPage')
                 ->where('errors.username', 'Access denied. This account\'s role is "barista"; only managers can sign in.'));
+    }
+
+    public function test_an_unreadable_password_hash_does_not_crash_the_login_form(): void
+    {
+        // Regression: the hasher throws on a hash it cannot read (a legacy
+        // MD5 from another app, or one truncated by a narrow column), which
+        // surfaced as a 500 on the login form instead of a message.
+        $user = User::factory()->create(['role' => 'manager', 'username' => 'lama']);
+        DB::table('users')->where('id', $user->id)->update(['password' => md5('rahasia')]);
+
+        $response = $this->post('/login', ['username' => 'lama', 'password' => 'rahasia']);
+
+        $this->assertGuest();
+        $response->assertSessionHasErrors('username');
+        $this->assertStringContainsString(
+            'cannot read',
+            session('errors')->first('username'),
+        );
     }
 
     public function test_users_can_logout(): void
